@@ -1,0 +1,1100 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Triton CloudAPI",
+    "description": "This is the reference documentation for the CloudAPI that is part of Joyent's Triton stack. This guide provides descriptions of the APIs available, as well as supporting information -- such as how to use the software developer kits (SDK), command line interface (CLI), and where to find more information.",
+    "version": "9.15.0",
+    "license": {
+      "name": "Mozilla Public License 2.0"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://cloudapi.iad001.triton.zone/",
+      "description": "IAD001"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Account",
+      "description": "You can obtain your account details and update them through CloudAPI, although account name cannot be changed, and password can not be retrieved"
+    },
+    {
+      "name": "Keys",
+      "description": "This part of the API is the means by which you operate on your SSH/signing keys. These keys are needed in order to login to instances over SSH, as well as signing requests to this API (see the HTTP Signature Authentication Scheme outlined in Appendix B for more details). <br /><br /> Currently CloudAPI supports uploads of public keys in the OpenSSH format. <br /><br /> Note that while it's possible to provide a `name` attribute for an SSH key in order to use it as a human-friendly alias, this attribute's presence is optional. When it's not provided, the ssh key fingerprint will be used as the `name` instead. <br /><br /> Keys can optionally be submitted along with a hardware attestation certificate signed by a trusted hardware manufacturer, which will be validated and processed. Keys generated in hardware devices which require ome form of multi-factor authentication to sign requests (e.g. the device requires a PIN or Touch input) are marked by this mechanism and may be specially treated by Triton and Manta as providing a kind of 2-factor authentication (depending on administrator policy). <br /><br /> For the following routes, the parameter placeholder `{key}` can be replaced with with either the key's `name` or its `fingerprint`. It's strongly recommended to use `fingerprint` when possible, since the `name` attribute does not have any uniqueness constraints."
+    },
+    {
+      "name": "Roles",
+      "description": "Roles a sub-users can adopt when attempting to access a resource. See the RBAC section for more details."
+    }
+  ],
+  "security": [
+    {
+      "http_signature": []
+    }
+  ],
+  "paths": {
+    "/--ping": {
+      "get": {
+        "tags": [
+          "Ping"
+        ],
+        "operationId": "Ping",
+        "summary": "Ping",
+        "description": "The set of supported API versions is given in the ping endpoint. Note that a Triton-Datacenter-Name response header was added in 9.2.0.",
+        "responses": {
+          "200": {
+            "description": "The set of supported API versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportedApiVersions"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{account}": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "AccountGet",
+        "operationId": "AccountGet",
+        "description": "Retrieves your account details. Instead of providing your account name, you can also provide `my` (i.e. GET /my)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "If `{account}` does not exist"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "UpdateAccount",
+        "operationId": "UpdateAccount",
+        "description": "Update your account details with the given parameters.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "AccountUpdateObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountUpdateObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      }
+    },
+    "/{account}/limits": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "GetAccountLimits",
+        "operationId": "GetAccountLimits",
+        "description": "When the operator has enabled the CloudAPI Provisioning Limits plugin, you can retreive your account limits and usage through this API.\nSee the Provisioning Limits plugin for how limits are configured and used in Triton.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LimitObject"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      }
+    },
+    "/{account}/keys": {
+      "get": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "ListKeys",
+        "operationId": "ListKeys",
+        "description": "Lists all public keys we have on record for the specified account.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KeyObject"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "CreateKey",
+        "operationId": "CreateKey",
+        "description": "Uploads a new OpenSSH key to Triton for use in signing and SSH",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "CreateKeyObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyCreateObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "DeleteKey",
+        "operationId": "DeleteKey",
+        "description": "Deletes a single SSH key, by name or fingerprint",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      }
+    },
+    "/{account}/keys/{key}": {
+      "get": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "GetKey",
+        "operationId": "GetKey",
+        "description": "Retrieves the record for an individual key.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key",
+            "description": "key name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      }
+    },
+    "/{account}/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "ListUsers",
+        "operationId": "ListUsers",
+        "description": "Returns a list of an account's user objects. These have the same format as the main account object.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "Account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountObject"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "CreateUser",
+        "operationId": "CreateUser",
+        "description": "Creates a new user under an account.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "Account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "UserCreateObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{account}/users/{id}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "GetUser",
+        "operationId": "GetUser",
+        "description": "Retrieves your account details. Instead of providing your account name, you can also provide `my` (i.e. GET /my)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "description": "sub account uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-0000-0000-000000000000"
+            }
+          },
+          {
+            "in": "query",
+            "name": "membership",
+            "description": "When given, the user roles will also be returned",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "If `{account}` does not exist"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "UpdateUser",
+        "operationId": "UpdateUser",
+        "description": "Update a user's modifiable properties. Note: Password changes are not allowed using this endpoint; there is an additional endpoint (ChangeUserPassword) for password changes so it can be selectively allowed/disallowed for users using policies.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "description": "sub account uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "UserCreateObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreateObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserCreateObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "DeleteUser",
+        "operationId": "Deleteuser",
+        "description": "Remove a user. They will no longer be able to use this API.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "description": "sub account uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/{account}/users/{id}/change_password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "ChangeUserPassword",
+        "operationId": "ChangeUserPassword",
+        "description": "This is a separate url for password changes, so different policies can be used for a user trying to modify other data, or only their own password.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "description": "sub account uuid",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "00000000-0000-0000-0000-000000000000"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "ChangePasswordObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{account}/roles": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "ListRoles",
+        "operationId": "ListRoles",
+        "description": "Returns an array of account roles.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleObject"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "CreateRole",
+        "operationId": "CreateRole",
+        "description": "Create a new role for your account",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "RoleObject",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleObject"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/{account}/roles/{role}": {
+      "get": {
+        "tags": [
+          "Roles"
+        ],
+        "summary": "GetRole",
+        "operationId": "GetRole",
+        "description": "Get an account role by `id` or `name`.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account",
+            "description": "account name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role",
+            "description": "role id or name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleObject"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "ResourceNotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SupportedApiVersions": {
+        "description": "Supported API versions",
+        "type": "object",
+        "properties": {
+          "ping": {
+            "type": "string",
+            "example": "pong"
+          },
+          "cloudapi": {
+            "type": "object",
+            "properties": {
+              "versions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "example": [
+                    "7.0.0",
+                    "8.0.0",
+                    "9.0.0"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "AccountObject": {
+        "description": "Account object",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-0000-0000-000000000000",
+            "description": "UUID - Unique id for this account"
+          },
+          "login": {
+            "type": "string",
+            "example": "poseidon",
+            "description": "Your login name for this account"
+          },
+          "email": {
+            "type": "string",
+            "example": "nobody@example.com"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "555-555-5555"
+          },
+          "created": {
+            "type": "string",
+            "description": "ISO8601 date - When this account was created",
+            "example": "1970-01-01T00:00:00.000Z"
+          },
+          "updated": {
+            "type": "string",
+            "description": "ISO8601 date - When this account was last updated",
+            "example": "1970-01-01T00:00:00.000Z"
+          },
+          "triton_cns_enabled": {
+            "type": "boolean",
+            "description": "`true` if Triton CNS is enabled for account"
+          }
+        }
+      },
+      "AccountUpdateObject": {
+        "description": "Update Account object",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "nobody@example.com"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "555-555-5555"
+          },
+          "triton_cns_enabled": {
+            "type": "boolean",
+            "description": "`true` if Triton CNS is enabled for account"
+          }
+        }
+      },
+      "LimitObject": {
+        "description": "See the [Provisioning Limits](https://github.com/joyent/sdc-cloudapi/blob/master/docs/admin.html#appendix-a-provision-limits-plugin) plugin for how limits are configured and used in Triton",
+        "type": "object",
+        "required": [
+          "by",
+          "value",
+          "used",
+          "check"
+        ],
+        "properties": {
+          "by": {
+            "type": "string",
+            "description": "The type of limit. Note that \"machines\" means the \"number of machines\". \"ram\", \"quota\", or \"machines\".",
+            "example": "ram"
+          },
+          "value": {
+            "type": "number",
+            "description": "The limit value. I.e. the total number of machines, total ram or total quota. Ram is defined in terms of MiB. Quota is defined in terms of GiB."
+          },
+          "used": {
+            "type": "number",
+            "description": "How much of the limit is used by existing machines."
+          },
+          "check": {
+            "type": "string",
+            "description": "Optional. Restricts the limit to an image name or to an image os.",
+            "example": "os"
+          },
+          "os": {
+            "type": "string",
+            "description": "Optional. When `check` is set to \"os\", this is the Image `os` name this limit will be restricted to. Usually, this will be one of windows, linux, smartos, bsd or other. See [IMGAPI os values](https://github.com/joyent/sdc-imgapi/blob/master/docs/index.md#manifest-os)."
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional. When check is set to \"image\", this is the Image name this limit will be restricted to. See [IMGAPI image name](https://github.com/joyent/sdc-imgapi/blob/master/docs/index.md#manifest-name)."
+          }
+        }
+      },
+      "KeyObject": {
+        "description": "Each key object has the following fields",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for this key"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "Key fingerprint"
+          },
+          "key": {
+            "type": "string",
+            "description": "Public key in OpenSSH format"
+          },
+          "attested": {
+            "type": "boolean",
+            "description": "Indicates if the key has a hardware device attestation"
+          },
+          "multifactor": {
+            "type": "array",
+            "description": "Lists any additional factors required to use (if attested)",
+            "items": {
+              "type": "string",
+              "description": "Possible multivactor values: <table> <tr> <th>Value</th> <th>Meaning</th> </tr> <tr> <td>pin</td> <td>Input of a PIN or password is required for key use</td> </tr> <tr> <td>touch</td> <td>Touch input (not authenticated -- i.e. not a fingerprint) is required for key use)</td> </tr> </table>"
+            }
+          }
+        }
+      },
+      "KeyCreateObject": {
+        "description": "Key Properties",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for this key (optional)"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "Key fingerprint"
+          },
+          "key": {
+            "type": "string",
+            "description": "Public key in OpenSSH format"
+          },
+          "attestation": {
+            "type": "array",
+            "description": "Array of attestations",
+            "items": {
+              "type": "string",
+              "description": "PEM formatted attestation certificate"
+            }
+          }
+        }
+      },
+      "UserCreateObject": {
+        "description": "Account object",
+        "type": "object",
+        "required": [
+          "login",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "login": {
+            "type": "string",
+            "example": "poseidon",
+            "description": "Your login name for this user"
+          },
+          "email": {
+            "type": "string",
+            "example": "nobody@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "s3cr3t"
+          },
+          "companyName": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "postalCode": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "example": "555-555-5555"
+          },
+          "created": {
+            "type": "string",
+            "description": "ISO8601 date - When this account was created",
+            "example": "1970-01-01T00:00:00.000Z"
+          },
+          "updated": {
+            "type": "string",
+            "description": "ISO8601 date - When this account was last updated",
+            "example": "1970-01-01T00:00:00.000Z"
+          },
+          "triton_cns_enabled": {
+            "type": "boolean",
+            "description": "`true` if Triton CNS is enabled for account"
+          }
+        }
+      },
+      "ChangePasswordObject": {
+        "description": "Change user password",
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "password_confirmation": {
+            "type": "string",
+            "description": "string must match `password`"
+          }
+        }
+      },
+      "RoleObject": {
+        "description": "RBAC user role",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "UUID - Unique id for this role"
+          },
+          "name": {
+            "type": "string",
+            "description": "The role name"
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "$ref": "#/components/schemas/RolePolicyObject"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "$ref": "#/components/schemas/RoleMemberObject"
+            }
+          }
+        }
+      },
+      "RolePolicyObject": {
+        "description": "Role Policy",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-0000-0000-000000000000"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "RoleMemberObject": {
+        "description": "Role Member",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Either `subuser` or `account`"
+          },
+          "id": {
+            "type": "string",
+            "description": "UUID - Unique id for this member",
+            "example": "00000000-0000-0000-0000-000000000000"
+          },
+          "login": {
+            "type": "string",
+            "description": "The login name for this member"
+          },
+          "default": {
+            "type": "boolean",
+            "description": "if `true`, the user is a default member of the role"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "http_signature": {
+        "type": "http",
+        "scheme": "Signature",
+        "description": "Joyents [HTTP Signature Scheme](https://github.com/joyent/node-http-signature/blob/master/http_signing.md)"
+      }
+    }
+  }
+}
